@@ -3,31 +3,32 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
+using dotnetBackend.Data;
 using dotnetBackend.Dtos.Character;
+using Microsoft.EntityFrameworkCore;
 
 namespace dotnetBackend.Services.CharacterService
 {
     public class CharacterService : ICharacterService
     {
-        private static List<Character> characters = new List<Character> {
-            new Character(),
-            new Character { Id=1, Name = "Gottem"}
-        }; 
-        private readonly IMapper mapper;
+        private readonly IMapper _mapper;
+        private readonly DataContext _context;
 
-        public CharacterService(IMapper mapper)
+        public CharacterService(IMapper mapper, DataContext context)
         {
-            this.mapper = mapper;
-            
+            _context = context;
+            _mapper = mapper;
         }
 
         public async Task<ServiceResponse<List<GetCharacterDto>>> AddCharacter(AddCharacterDto newCharacter)
         {
             var serviceResponse = new ServiceResponse<List<GetCharacterDto>>();
-            Character character = this.mapper.Map<Character>(newCharacter);
-            character.Id = characters.Max(c => c.Id) + 1;
-            characters.Add(character);
-            serviceResponse.Data = characters.Select(c => this.mapper.Map<GetCharacterDto>(c)).ToList();
+            Character character = _mapper.Map<Character>(newCharacter);
+            _context.Characters.Add(character);
+            await _context.SaveChangesAsync();
+            serviceResponse.Data = await _context.Characters
+                .Select(c => _mapper.Map<GetCharacterDto>(c))
+                .ToListAsync();
             return serviceResponse;
         }
 
@@ -37,9 +38,10 @@ namespace dotnetBackend.Services.CharacterService
 
             try
             {
-                Character character = characters.First(c => c.Id == id);
-                characters.Remove(character);
-                serviceResponse.Data = characters.Select(c => this.mapper.Map<GetCharacterDto>(c)).ToList();
+                Character character = await _context.Characters.FirstAsync(c => c.Id == id);
+                _context.Characters.Remove(character);
+                await _context.SaveChangesAsync();
+                serviceResponse.Data = _context.Characters.Select(c => _mapper.Map<GetCharacterDto>(c)).ToList();
             }
             catch(Exception ex)
             {
@@ -52,14 +54,18 @@ namespace dotnetBackend.Services.CharacterService
 
         public async Task<ServiceResponse<List<GetCharacterDto>>> GetallCharacters()
         {
-            return new ServiceResponse<List<GetCharacterDto>> { Data = characters.Select(c => this.mapper.Map<GetCharacterDto>(c)).ToList() };
+            var response = new ServiceResponse<List<GetCharacterDto>>();
+            var dbCharacters = await _context.Characters.ToListAsync();
+            response.Data = dbCharacters.Select(c => _mapper.Map<GetCharacterDto>(c)).ToList();
+
+            return response;
         }
 
         public async Task<ServiceResponse<GetCharacterDto>> GetCharacterById(int id)
         {
             var serviceResponse = new ServiceResponse<GetCharacterDto>();
-            var character = characters.FirstOrDefault(c => c.Id == id);
-            serviceResponse.Data = this.mapper.Map<GetCharacterDto>(character);
+            var dbCharacter = await _context.Characters.FirstOrDefaultAsync(c => c.Id == id);
+            serviceResponse.Data = _mapper.Map<GetCharacterDto>(dbCharacter);
             return serviceResponse;
         }
 
@@ -69,8 +75,8 @@ namespace dotnetBackend.Services.CharacterService
             
             try
             {
-                Character character = characters.FirstOrDefault(c => c.Id == updatedCharater.Id);
-                // this.mapper.Map(updatedCharater, character);
+                var character = await _context.Characters.FirstOrDefaultAsync(c => c.Id == updatedCharater.Id);
+                // _mapper.Map(updatedCharater, character);
 
                 character.Name = updatedCharater.Name;
                 character.HitPoints = updatedCharater.HitPoints;
@@ -79,7 +85,9 @@ namespace dotnetBackend.Services.CharacterService
                 character.Intelligence = updatedCharater.Intelligence;
                 character.Class = updatedCharater.Class;
 
-                response.Data = this.mapper.Map<GetCharacterDto>(character);
+                await _context.SaveChangesAsync();
+
+                response.Data = _mapper.Map<GetCharacterDto>(character);
             }
             catch(Exception ex)
             {
