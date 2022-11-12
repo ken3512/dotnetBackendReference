@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using dotnetBackend.Dtos.Character;
 using dotnetBackend.Services.CharacterService;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace dotnetBackend.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class CharacterController : ControllerBase
@@ -59,7 +62,18 @@ namespace dotnetBackend.Controllers
             var response = await _characterService.DeleteCharacter(id);
             if(response.Data == null)
             {
-                return NotFound(response);
+                return BadRequest(response);
+            }
+            return Ok(response);
+        }
+
+        [HttpPost("Skill")]
+        public async Task<ActionResult<ServiceResponse<GetCharacterDto>>> AddCharacterSkill(AddCharacterSkillDto newCharacterSkill)
+        {
+            var response = await _characterService.AddCharacterSkill(newCharacterSkill);
+            if(response.Data == null)
+            {
+                return BadRequest(response);
             }
             return Ok(response);
         }
